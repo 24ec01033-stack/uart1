@@ -1,0 +1,101 @@
+module rx (
+    input clk,
+    input rst,
+    input rx,
+    input tick,
+    input half_tick,
+    output reg [7:0] data_out,
+    output reg done
+);
+
+parameter s0 = 2'b00; // idle
+parameter s1 = 2'b01; // start check
+parameter s2 = 2'b10; // data
+parameter s3 = 2'b11; // stop
+
+reg [1:0] state, next_state;
+reg [2:0] bit_index;
+reg [7:0] shift_reg;
+
+// 🔹 Synchronizer (avoid metastability)
+reg r1, r2;
+wire rx_s;
+
+always @(posedge clk) begin
+    r1 <= rx;
+    r2 <= r1;
+end
+
+assign rx_s = r2;
+
+// 🔹 State register
+always @(posedge clk or posedge rst) begin
+    if (rst)
+        state <= s0;
+    else
+        state <= next_state;
+end
+
+// 🔹 Next-state logic (with start validation)
+always @(*) begin
+    case (state)
+        s0: next_state = (rx_s == 0) ? s1 : s0;
+
+        // ✔ Validate start bit at mid-point
+        s1: next_state = (half_tick && rx_s == 0) ? s2 : s1;
+
+        s2: next_state = (tick && bit_index == 7) ? s3 : s2;
+
+        s3: next_state = (tick) ? s0 : s3;
+
+        default: next_state = s0;
+    endcase
+end
+
+// 🔹 Done pulse (1 clock)
+always @(posedge clk or posedge rst) begin
+    if (rst)
+        done <= 0;
+    else begin
+        done <= 0;
+        if (state == s3 && tick)
+            done <= 1;
+    end
+end
+
+// 🔹 Data path
+always @(posedge clk or posedge rst) begin
+    if (rst) begin
+        bit_index <= 0;
+        shift_reg <= 0;
+        data_out <= 0;
+    end else begin
+        case (state)
+
+            s0: begin
+                bit_index <= 0;
+                shift_reg <= 0;
+            end
+
+            s2: begin
+                if (tick) begin
+                    shift_reg[bit_index] <= rx_s;
+
+                    // ✔ Safe counter
+                    if (bit_index == 7)
+                        bit_index <= 0;
+                    else
+                        bit_index <= bit_index + 1;
+                end
+            end
+
+            s3: begin
+                if (tick)
+                    data_out <= shift_reg;
+            end
+
+        endcase
+    end
+end
+
+endmodule
