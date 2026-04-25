@@ -1,0 +1,34 @@
+module baud_rate (
+    input clk,
+    input rst,
+    output reg tick,
+    output reg half_tick
+);
+
+parameter CLK_FREQ = 100000000;
+parameter BAUD_RATE = 9600;
+
+localparam DIV = CLK_FREQ / BAUD_RATE;
+localparam HALF = DIV / 2;
+
+reg [31:0] count;
+
+always @(posedge clk or posedge rst) begin
+    if (rst) begin
+        count <= 0;
+        tick <= 0;
+        half_tick <= 0;
+    end else begin
+        if (count == DIV-1) begin
+            count <= 0;
+            tick <= 1;
+            half_tick <= 0;
+        end else begin
+            count <= count + 1;
+            tick <= 0;
+            half_tick <= (count == HALF-1);
+        end
+    end
+end
+
+endmodule
