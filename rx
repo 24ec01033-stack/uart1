@@ -19,7 +19,7 @@ reg [7:0] shift_reg;
 
 // 🔹 Synchronizer (avoid metastability)
 reg r1, r2;
-wire rx_s;
+wire rx_s; // rx_start
 
 always @(posedge clk) begin
     r1 <= rx;
