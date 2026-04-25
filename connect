@@ -1,0 +1,90 @@
+module uart_top_full (
+    input clk,
+    input rst,
+
+    input rx,              // UART RX from PC
+    output tx,             // UART TX to PC
+
+    input [7:0] sw,        // switches = ASCII input
+    input btn_send,        // button to send data
+
+    output [7:0] led       // LEDs show received ASCII
+);
+
+// ---------------- BAUD ----------------
+wire tick, half_tick;
+
+baud_rate br (
+    .clk(clk),
+    .rst(rst),
+    .tick(tick),
+    .half_tick(half_tick)
+);
+
+// ---------------- RX ----------------
+wire [7:0] rx_data;
+wire rx_done;
+
+rx rx_unit (
+    .clk(clk),
+    .rst(rst),
+    .rx(rx),
+    .tick(tick),
+    .half_tick(half_tick),
+    .data_out(rx_data),
+    .done(rx_done)
+);
+
+// ---------------- TX ----------------
+reg start_tx;
+reg [7:0] tx_data;
+wire busy;
+
+tx tx_unit (
+    .clk(clk),
+    .rst(rst),
+    .data_in(tx_data),
+    .start(start_tx),
+    .tick(tick),
+    .dout(tx),
+    .busy(busy)
+);
+
+// ---------------- LED ----------------
+reg [7:0] led_reg;
+assign led = led_reg;
+
+// ---------------- BUTTON EDGE DETECTOR ----------------
+reg btn_d1, btn_d2;
+wire btn_pulse;
+
+always @(posedge clk) begin
+    btn_d1 <= btn_send;
+    btn_d2 <= btn_d1;
+end
+
+assign btn_pulse = btn_d1 & ~btn_d2; // rising edge
+
+// ---------------- CONTROL ----------------
+always @(posedge clk or posedge rst) begin
+    if (rst) begin
+        led_reg <= 0;
+        start_tx <= 0;
+        tx_data <= 0;
+    end else begin
+        start_tx <= 0;
+
+        // 🔷 PC → FPGA → LED
+        if (rx_done) begin
+            led_reg <= rx_data;
+        end
+
+        // 🔷 FPGA → PC (switch → UART)
+        if (btn_pulse && !busy) begin
+            tx_data <= sw;     // send switch value as ASCII
+            start_tx <= 1;
+        end
+    end
+end
+
+endmodule
