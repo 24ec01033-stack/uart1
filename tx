@@ -8,10 +8,10 @@ module tx (
     output reg busy
 );
 
-parameter s0 = 2'b00;
-parameter s1 = 2'b01;
-parameter s2 = 2'b10;
-parameter s3 = 2'b11;
+parameter s0 = 2'b00; // initial begun
+parameter s1 = 2'b01; // start 
+parameter s2 = 2'b10; // data
+parameter s3 = 2'b11; // stop
 
 reg [1:0] state, next_state;
 reg [2:0] bit_index;
